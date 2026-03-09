@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>WKT CRS Builder</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<h1>Gerador de WKT de Sistema de Referência</h1>
+
+<div class="form">
+
+<label>Nome do CRS</label>
+<input id="crsName" value="SIRGAS 2000 / UTM zone 23S">
+
+<label>Datum</label>
+<select id="datum">
+<option value="SIRGAS2000">SIRGAS 2000</option>
+<option value="WGS84">WGS84</option>
+</select>
+
+<label>Projeção</label>
+<select id="projection">
+<option value="utm">UTM</option>
+</select>
+
+<label>Zona UTM</label>
+<input id="zone" type="number" value="23">
+
+<label>Hemisfério</label>
+<select id="hemisphere">
+<option value="south">Sul</option>
+<option value="north">Norte</option>
+</select>
+
+<button onclick="generateWKT()">Gerar WKT</button>
+
+</div>
+
+<h2>WKT</h2>
+
+<textarea id="wktOutput"></textarea>
+
+<script src="js/script.js"></script>
+
+</body>
+</html>

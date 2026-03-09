@@ -1,0 +1,18 @@
+body{
+font-family: Arial;
+margin:40px;
+}
+
+.form{
+display:flex;
+flex-direction:column;
+width:300px;
+gap:10px;
+}
+
+textarea{
+width:800px;
+height:300px;
+margin-top:20px;
+font-family:monospace;
+}
