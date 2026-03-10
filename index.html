@@ -5,7 +5,7 @@
 
 <meta charset="UTF-8">
 
-<title>CRS Studio</title>
+<title>CRS Studio Web</title>
 
 <link rel="stylesheet" href="css/style.css">
 
@@ -24,30 +24,49 @@ href="https://unpkg.com/leaflet/dist/leaflet.css"
 
 <div class="panel">
 
-<h2>Buscar EPSG</h2>
+<h2>Buscar CRS por EPSG</h2>
 
-<input id="epsgCode" placeholder="Ex: 31983">
+<input id="epsgCode" placeholder="Ex: 4326, 4674, 31983">
 
 <button id="searchEPSG">
 Buscar
 </button>
 
-<h2>CRS Builder</h2>
+<hr>
+
+<h2>Gerar CRS UTM</h2>
 
 <label>Datum</label>
 
 <select id="datum">
-<option value="SIRGAS2000">SIRGAS2000</option>
+
 <option value="WGS84">WGS84</option>
+
+<option value="SIRGAS2000">SIRGAS2000</option>
+
 </select>
 
 <label>Zona UTM</label>
 
 <input id="zone" type="number" value="23">
 
+<label>Hemisfério</label>
+
+<select id="hemisphere">
+
+<option value="south">Sul</option>
+
+<option value="north">Norte</option>
+
+</select>
+
 <button id="generateCRS">
 Gerar WKT
 </button>
+
+<hr>
+
+<p><b>Dica:</b> clique no mapa para detectar automaticamente a zona UTM.</p>
 
 </div>
 
@@ -56,6 +75,12 @@ Gerar WKT
 <h2>WKT</h2>
 
 <textarea id="wktOutput"></textarea>
+
+<br>
+
+<button id="copyWKT">
+Copiar WKT
+</button>
 
 </div>
 
@@ -71,12 +96,7 @@ Gerar WKT
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
-
 <script src="js/app.js"></script>
-<script src="js/epsg.js"></script>
-<script src="js/wktGenerator.js"></script>
-<script src="js/map.js"></script>
 
 </body>
 
