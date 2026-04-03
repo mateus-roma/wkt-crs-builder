@@ -1,103 +1,270 @@
 <!DOCTYPE html>
-<html lang="pt">
-
+<html lang="pt-BR">
 <head>
-
-<meta charset="UTF-8">
-
-<title>CRS Studio Web</title>
-
-<link rel="stylesheet" href="css/style.css">
-
-<link
-rel="stylesheet"
-href="https://unpkg.com/leaflet/dist/leaflet.css"
-/>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Construtor WKT — Sistemas de Referência de Coordenadas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css\style.css">
 </head>
-
 <body>
 
-<h1>CRS Studio Web</h1>
+<!-- ===== Header ===== -->
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" stroke="#fff" stroke-width="1.5"/>
+      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+            stroke="#fff" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <h1>Construtor WKT</h1>
+  <span class="subtitle">— Sistemas de Referência de Coordenadas</span>
+</header>
 
-<div class="layout">
+<!-- ===== Main 3-column grid ===== -->
+<div class="main">
 
-<div class="panel">
+  <!-- =========================================================
+       COLUMN 1 — EPSG Search
+       ========================================================= -->
+  <div class="panel panel-search">
+    <div class="panel-title">Busca por código EPSG</div>
 
-<h2>Buscar CRS por EPSG</h2>
+    <div class="search-input-wrap">
+      <svg class="search-icon" viewBox="0 0 16 16" fill="none">
+        <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M10 10l3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <input
+        type="text"
+        id="epsg-query"
+        class="search-input"
+        placeholder="Código ou nome… ex: 4326, UTM, SIRGAS"
+        autocomplete="off"
+        oninput="scheduleSearch()"
+        onkeydown="if(event.key==='Enter') doSearch()"
+      >
+      <button class="search-clear" id="search-clear" onclick="clearSearch()" title="Limpar">✕</button>
+    </div>
 
-<input id="epsgCode" placeholder="Ex: 4326, 4674, 31983">
+    <div class="chip-row">
+      <button class="chip active" data-kind="CRS"        onclick="setKind(this)">Todos</button>
+      <button class="chip"        data-kind="Geographic" onclick="setKind(this)">Geográfico</button>
+      <button class="chip"        data-kind="Projected"  onclick="setKind(this)">Projetado</button>
+      <button class="chip"        data-kind="Vertical"   onclick="setKind(this)">Vertical</button>
+    </div>
 
-<button id="searchEPSG">
-Buscar
-</button>
+    <div id="search-status" class="search-status" style="display:none"></div>
 
-<hr>
+    <div id="search-results" class="search-results">
+      <div class="search-empty">
+        <svg viewBox="0 0 24 24" fill="none" width="28" height="28">
+          <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M16.5 16.5l3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        <span>Digite um código EPSG ou nome para buscar</span>
+      </div>
+    </div>
 
-<h2>Gerar CRS UTM</h2>
+    <div id="epsg-detail" class="epsg-detail" style="display:none">
+      <div class="detail-header">
+        <div>
+          <div class="detail-name" id="detail-name"></div>
+          <div class="detail-meta" id="detail-meta"></div>
+        </div>
+        <button class="detail-close" onclick="closeDetail()" title="Fechar">✕</button>
+      </div>
+      <div class="detail-wkt-box" id="detail-wkt"></div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn btn-primary" onclick="importFromDetail()">Importar para editor</button>
+        <button class="btn" onclick="copyDetailWKT()" id="copy-detail-btn">Copiar WKT</button>
+      </div>
+    </div>
+  </div>
 
-<label>Datum</label>
 
-<select id="datum">
+  <!-- =========================================================
+       COLUMN 2 — CRS Configuration
+       ========================================================= -->
+  <div class="panel">
+    <div class="panel-title">Configuração do CRS</div>
 
-<option value="WGS84">WGS84</option>
+    <div class="tab-group">
+      <button class="tab active" onclick="setTab('geog')">Geográfico</button>
+      <button class="tab"        onclick="setTab('proj')">Projetado</button>
+      <button class="tab"        onclick="setTab('vert')">Vertical</button>
+    </div>
 
-<option value="SIRGAS2000">SIRGAS2000</option>
+    <!-- GEOGRAPHIC -->
+    <div id="pane-geog" class="scroll-form">
+      <div class="field-group">
+        <div class="section-label">Presets comuns</div>
+        <div class="preset-grid">
+          <button class="preset-btn" onclick="loadPreset('wgs84')"><span class="preset-name">WGS 84</span>EPSG:4326</button>
+          <button class="preset-btn" onclick="loadPreset('sirgas2000')"><span class="preset-name">SIRGAS 2000</span>EPSG:4674</button>
+          <button class="preset-btn" onclick="loadPreset('sad69')"><span class="preset-name">SAD 69</span>EPSG:4618</button>
+          <button class="preset-btn" onclick="loadPreset('etrs89')"><span class="preset-name">ETRS89</span>EPSG:4258</button>
+          <button class="preset-btn" onclick="loadPreset('gda2020')"><span class="preset-name">GDA2020</span>EPSG:7844</button>
+          <button class="preset-btn" onclick="loadPreset('nad83')"><span class="preset-name">NAD83</span>EPSG:4269</button>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="field-group">
+        <div class="section-label">Nome do CRS</div>
+        <input type="text" id="g_name" value="WGS 84" oninput="render()">
+      </div>
+      <div class="field-group">
+        <div class="section-label">Nome do Datum</div>
+        <input type="text" id="g_datum" value="World Geodetic System 1984" oninput="render()">
+      </div>
+      <div class="field-group">
+        <div class="section-label">Esferoide (Elipsoide)</div>
+        <div class="row3">
+          <div class="field-group"><div class="section-label">Nome</div><input type="text" id="g_sph_name" value="WGS 84" oninput="render()"></div>
+          <div class="field-group"><div class="section-label">Semi-eixo maior (a)</div><input type="number" id="g_a" value="6378137" oninput="render()"></div>
+          <div class="field-group"><div class="section-label">Achat. inv. (1/f)</div><input type="number" id="g_invf" value="298.257223563" step="any" oninput="render()"></div>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="section-label">Meridiano principal</div>
+        <div class="row2">
+          <div class="field-group"><div class="section-label">Nome</div><input type="text" id="g_pm_name" value="Greenwich" oninput="render()"></div>
+          <div class="field-group"><div class="section-label">Valor (°)</div><input type="number" id="g_pm_val" value="0" step="any" oninput="render()"></div>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="section-label">Unidade angular</div>
+        <select id="g_unit" onchange="render()">
+          <option value='ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]'>Grau (°)</option>
+          <option value='ANGLEUNIT["grad",0.015707963267949,ID["EPSG",9105]]'>Grado</option>
+          <option value='ANGLEUNIT["radian",1,ID["EPSG",9101]]'>Radiano</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <div class="section-label">Código EPSG (opcional)</div>
+        <input type="text" id="g_epsg" value="4326" oninput="render()">
+      </div>
+      <div class="info-tip">CRS geográficos usam longitude e latitude. O WGS 84 é o datum global do GPS.</div>
+    </div>
 
-</select>
+    <!-- PROJECTED -->
+    <div id="pane-proj" class="scroll-form" style="display:none">
+      <div class="field-group">
+        <div class="section-label">Presets</div>
+        <div class="preset-grid">
+          <button class="preset-btn" onclick="loadPreset('utm23s')"><span class="preset-name">SIRGAS 2000 / UTM 23S</span>EPSG:31983</button>
+          <button class="preset-btn" onclick="loadPreset('utm24s')"><span class="preset-name">SIRGAS 2000 / UTM 24S</span>EPSG:31984</button>
+          <button class="preset-btn" onclick="loadPreset('webmerc')"><span class="preset-name">Web Mercator</span>EPSG:3857</button>
+          <button class="preset-btn" onclick="loadPreset('utm31n')"><span class="preset-name">WGS 84 / UTM 31N</span>EPSG:32631</button>
+          <button class="preset-btn" onclick="loadPreset('lcc')"><span class="preset-name">Lambert CC France</span>EPSG:2154</button>
+          <button class="preset-btn" onclick="loadPreset('albers_br')"><span class="preset-name">Albers Brasil</span>Personalizado</button>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="field-group"><div class="section-label">Nome do CRS projetado</div><input type="text" id="p_name" value="SIRGAS 2000 / UTM zone 23S" oninput="render()"></div>
+      <div class="field-group"><div class="section-label">CRS base (geográfico)</div><input type="text" id="p_base" value="SIRGAS 2000" oninput="render()"></div>
+      <div class="field-group">
+        <div class="section-label">Método de projeção</div>
+        <select id="p_proj" onchange="updateProjFields();render()">
+          <option value="Transverse Mercator">Transverse Mercator (UTM)</option>
+          <option value="Mercator (variant B)">Mercator (Web Mercator)</option>
+          <option value="Lambert Conic Conformal (2SP)">Lambert Cônico Conforme (2SP)</option>
+          <option value="Lambert Conic Conformal (1SP)">Lambert Cônico Conforme (1SP)</option>
+          <option value="Albers Equal Area">Albers Equal Area</option>
+          <option value="Stereographic">Estereográfico</option>
+          <option value="Oblique Mercator">Mercator Oblíquo</option>
+          <option value="Cassini-Soldner">Cassini-Soldner</option>
+          <option value="Polyconic">Policônica</option>
+        </select>
+      </div>
+      <div id="proj-params" style="display:flex;flex-direction:column;gap:.75rem"></div>
+      <div class="field-group">
+        <div class="section-label">Unidade linear</div>
+        <select id="p_unit" onchange="render()">
+          <option value='LENGTHUNIT["metre",1,ID["EPSG",9001]]'>Metro</option>
+          <option value='LENGTHUNIT["foot",0.3048,ID["EPSG",9002]]'>Pé</option>
+          <option value='LENGTHUNIT["US survey foot",0.304800609601219,ID["EPSG",9003]]'>Pé US Survey</option>
+          <option value='LENGTHUNIT["kilometre",1000,ID["EPSG",9036]]'>Quilômetro</option>
+        </select>
+      </div>
+      <div class="field-group"><div class="section-label">Código EPSG (opcional)</div><input type="text" id="p_epsg" value="31983" oninput="render()"></div>
+    </div>
 
-<label>Zona UTM</label>
+    <!-- VERTICAL -->
+    <div id="pane-vert" class="scroll-form" style="display:none">
+      <div class="field-group"><div class="section-label">Nome do CRS vertical</div><input type="text" id="v_name" value="EGM2008 height" oninput="render()"></div>
+      <div class="field-group"><div class="section-label">Nome do Datum vertical</div><input type="text" id="v_datum" value="EGM2008 geoid" oninput="render()"></div>
+      <div class="field-group">
+        <div class="section-label">Tipo de datum</div>
+        <select id="v_dtype" onchange="render()">
+          <option value="geoid">Geoidal</option>
+          <option value="depth">Profundidade</option>
+          <option value="orthometric">Ortométrico</option>
+          <option value="ellipsoid">Elipsoidal</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <div class="section-label">Unidade linear</div>
+        <select id="v_unit" onchange="render()">
+          <option value='LENGTHUNIT["metre",1,ID["EPSG",9001]]'>Metro</option>
+          <option value='LENGTHUNIT["foot",0.3048,ID["EPSG",9002]]'>Pé</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <div class="section-label">Direção positiva do eixo</div>
+        <select id="v_dir" onchange="render()">
+          <option value="up">Para cima (Up) — altitude</option>
+          <option value="down">Para baixo (Down) — profundidade</option>
+        </select>
+      </div>
+      <div class="field-group"><div class="section-label">Código EPSG (opcional)</div><input type="text" id="v_epsg" value="3855" oninput="render()"></div>
+      <div class="info-tip">Ex: EGM2008 (EPSG:3855) é amplamente usado em hidrografia e aeronáutica.</div>
+    </div>
 
-<input id="zone" type="number" value="23">
+  </div><!-- /column 2 -->
 
-<label>Hemisfério</label>
 
-<select id="hemisphere">
+  <!-- =========================================================
+       COLUMN 3 — WKT Output
+       ========================================================= -->
+  <div class="panel">
+    <div class="panel-title">
+      <span>String WKT gerada</span>
+      <span class="badge" id="wkt-version">WKT2:2019</span>
+    </div>
 
-<option value="south">Sul</option>
+    <div class="btn-row">
+      <select id="wkt_ver" onchange="render()" style="width:auto;flex:0;min-width:190px">
+        <option value="2019">WKT2:2019 (ISO 19162)</option>
+        <option value="2015">WKT2:2015</option>
+        <option value="1">WKT1 (OGC/ESRI legado)</option>
+      </select>
+    </div>
 
-<option value="north">Norte</option>
+    <div class="wkt-box" id="wkt-out" spellcheck="false"></div>
 
-</select>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="copy-btn" onclick="copyWKT()">Copiar WKT</button>
+      <button class="btn" onclick="downloadWKT()">Baixar .prj</button>
+      <button class="btn" onclick="clearOutput()">Limpar</button>
+    </div>
 
-<button id="generateCRS">
-Gerar WKT
-</button>
+    <div class="divider"></div>
 
-<hr>
+    <div class="ref-links">
+      <div class="section-label">Referências rápidas</div>
+      <div class="ref-links-row">
+        <a href="https://epsg.io"                                    target="_blank" rel="noopener" class="btn">EPSG.io ↗</a>
+        <a href="https://spatialreference.org"                        target="_blank" rel="noopener" class="btn">SpatialReference.org ↗</a>
+        <a href="https://proj.org/en/stable/operations/projections/"  target="_blank" rel="noopener" class="btn">PROJ Docs ↗</a>
+      </div>
+    </div>
+  </div><!-- /column 3 -->
 
-<p><b>Dica:</b> clique no mapa para detectar automaticamente a zona UTM.</p>
+</div><!-- /main -->
 
-</div>
-
-<div class="panel">
-
-<h2>WKT</h2>
-
-<textarea id="wktOutput"></textarea>
-
-<br>
-
-<button id="copyWKT">
-Copiar WKT
-</button>
-
-</div>
-
-<div class="panel">
-
-<h2>Mapa</h2>
-
-<div id="map"></div>
-
-</div>
-
-</div>
-
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-<script src="js/app.js"></script>
-
+<script src="js\app.js"></script>
 </body>
-
 </html>
