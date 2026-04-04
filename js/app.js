@@ -15,38 +15,78 @@ var detailData  = null;           // currently selected EPSG result
 var lastResults = [];             // last search result list
 
 /* =============================================================
-   EPSG API — epsg.io  (public JSON endpoint, no key required)
-   Endpoint: https://epsg.io/?q=<query>&format=json&trans=1
-   Fields used: results[].code, .name, .kind, .wkt, .proj4
+   EPSG APIs
+
+   BUSCA  → apps.epsg.org/api/v1  (API oficial da IOGP/OGP)
+            Retorna JSON com Access-Control-Allow-Origin: *
+            Endpoint: /CoordRefSystem/?searchTerm=<q>&pageSize=40
+
+   WKT    → epsg.io/<code>.wkt  ou  .wkt2
+            Resposta texto puro com Access-Control-Allow-Origin: *
    ============================================================= */
-var EPSG_API = 'https://epsg.io/?format=json&trans=1&q=';
+
+var EPSG_SEARCH_API = 'https://apps.epsg.org/api/v1/CoordRefSystem/';
+var EPSG_WKT_BASE   = 'https://epsg.io/';
 
 /**
- * Fetch search results from epsg.io.
- * Returns a promise that resolves to an array of result objects.
+ * Normaliza um resultado da apps.epsg.org para o formato
+ * interno { code, name, kind } usado pelo restante do código.
+ */
+function normalizeResult(r) {
+  /* O campo "type" da API oficial varia: "projected", "geographic 2D", etc. */
+  var kind = r.type || r.Type || '';
+  return {
+    code: String(r.code || r.Code || ''),
+    name: r.name || r.Name || '—',
+    kind: kind
+  };
+}
+
+/**
+ * Busca na API oficial do EPSG GeoRepository (apps.epsg.org).
+ * Suporta código numérico ou texto livre.
+ * Retorna Promise<Array>.
  */
 function fetchEPSG(query) {
-  var url = EPSG_API + encodeURIComponent(query);
-  return fetch(url)
+  var params = new URLSearchParams({
+    searchTerm: query,
+    pageSize:   40,
+    page:       1
+  });
+  var url = EPSG_SEARCH_API + '?' + params.toString();
+
+  return fetch(url, { headers: { 'Accept': 'application/json' } })
     .then(function (res) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
     })
     .then(function (data) {
-      return (data && data.results) ? data.results : [];
+      /* A resposta tem { Results: [...], TotalResults: N } */
+      var list = data.Results || data.results || [];
+      return list.map(normalizeResult);
     });
 }
 
 /**
- * Fetch WKT for a specific EPSG code.
- * epsg.io provides WKT2 at /<code>.wkt2 and WKT1 at /<code>.wkt
+ * Busca o WKT de um código EPSG via epsg.io (texto puro, CORS aberto).
+ *   version '2019' ou '2015'  →  /<code>.wkt2
+ *   version '1'               →  /<code>.wkt
  */
 function fetchWKTByCode(code, version) {
-  var ext = (version === '2019' || version === '2015') ? 'wkt2' : 'wkt';
-  return fetch('https://epsg.io/' + code + '.' + ext)
+  var ext = (version === '1') ? 'wkt' : 'wkt2';
+  var url = EPSG_WKT_BASE + code + '.' + ext;
+
+  return fetch(url)
     .then(function (res) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.text();
+    })
+    .then(function (txt) {
+      /* epsg.io retorna HTML quando o código não existe — detectar */
+      if (txt.trim().startsWith('<')) {
+        throw new Error('WKT não disponível para EPSG:' + code);
+      }
+      return txt.trim();
     });
 }
 
@@ -94,9 +134,15 @@ function doSearch() {
     })
     .catch(function (err) {
       setStatus('');
+      var msg = err.message || String(err);
+      /* Mensagem amigável para erros comuns */
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Load failed')) {
+        msg = 'Sem conexão com a internet. Verifique sua rede e tente novamente.';
+      } else if (msg.includes('token') || msg.includes('JSON')) {
+        msg = 'Resposta inesperada da API. Verifique sua conexão ou tente novamente.';
+      }
       document.getElementById('search-results').innerHTML =
-        '<div class="search-error">Erro ao consultar a API: ' + err.message +
-        '. Verifique sua conexão ou tente novamente.</div>';
+        '<div class="search-error">Erro ao buscar: ' + escHtml(msg) + '</div>';
     });
 }
 
@@ -140,15 +186,24 @@ function kindLabel(kind) {
   if (k.includes('vertical'))   return 'Vertical';
   if (k.includes('compound'))   return 'Composto';
   if (k.includes('geocentric')) return 'Geocêntrico';
+  if (k.includes('engineering'))return 'Engenharia';
   return kind;
 }
 
-/** Filter results by the active kind chip */
+/**
+ * Filter results by active chip.
+ * searchKind 'CRS' = todos; outros mapeia para o type da API oficial.
+ */
 function applyKindFilter(results) {
   if (searchKind === 'CRS') return results;
+  var map = {
+    'Geographic': 'geographic',
+    'Projected':  'projected',
+    'Vertical':   'vertical'
+  };
+  var needle = (map[searchKind] || searchKind).toLowerCase();
   return results.filter(function (r) {
-    if (!r.kind) return false;
-    return r.kind.toLowerCase().includes(searchKind.toLowerCase());
+    return r.kind && r.kind.toLowerCase().includes(needle);
   });
 }
 
@@ -235,9 +290,13 @@ function showDetail(r) {
       wktEl.textContent = wkt || '(WKT não disponível para este código)';
       if (detailData) detailData._wkt = wkt;
     })
-    .catch(function () {
-      /* Fallback: use wkt field from search result if present */
-      wktEl.textContent = r.wkt || r.wkt2 || '(WKT não disponível)';
+    .catch(function (err) {
+      var msg = err.message || '';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Load failed')) {
+        wktEl.textContent = '(Sem conexão para buscar o WKT — verifique sua rede)';
+      } else {
+        wktEl.textContent = '(WKT não disponível para EPSG:' + r.code + ')';
+      }
     });
 }
 
